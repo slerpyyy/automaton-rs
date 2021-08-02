@@ -115,7 +115,7 @@ impl Curve {
         let total = (length * resolution as f32).floor() as usize;
         self.values = (0..total)
             .map(|index| {
-                let time = length * (index as f32 - 1.0) / (total as f32 - 1.0);
+                let time = length * (index as f32) / (total as f32 - 1.0);
                 let index = self
                     .nodes
                     .iter()
@@ -135,12 +135,12 @@ impl Curve {
     }
 
     pub fn get_value(&self, time: f32) -> f32 {
-        if time < 0.0 {
+        if time <= 0.0 {
             return *self.values.first().unwrap();
         }
 
         let length = self.length();
-        if time > length {
+        if time >= length {
             return *self.values.last().unwrap();
         }
 
@@ -229,7 +229,7 @@ mod tests {
 
         assert_approx_eq!(f32, curve.get_value(-1.0), 0.0);
         assert_approx_eq!(f32, curve.get_value(0.0), 0.0);
-        assert_approx_eq!(f32, curve.get_value(1.0), 0.5);
+        assert_approx_eq!(f32, curve.get_value(1.0), 0.5, epsilon = 0.005);
         assert_approx_eq!(f32, curve.get_value(2.0), 1.0);
         assert_approx_eq!(f32, curve.get_value(3.0), 1.0);
     }
@@ -242,7 +242,7 @@ mod tests {
 
         assert_approx_eq!(f32, curve.get_value(-1.0), 0.0);
         assert_approx_eq!(f32, curve.get_value(0.0), 0.0);
-        assert_approx_eq!(f32, curve.get_value(1.0), 1.5);
+        assert_approx_eq!(f32, curve.get_value(1.0), 1.5, epsilon = 0.005);
         assert_approx_eq!(f32, curve.get_value(2.0), 0.0);
         assert_approx_eq!(f32, curve.get_value(3.0), 0.0);
     }
