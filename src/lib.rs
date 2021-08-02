@@ -14,7 +14,7 @@ pub struct Automaton {
     resolution: usize,
     curves: Vec<Arc<Curve>>,
     channels: Vec<Channel>,
-    //labels: Vec<Label>,
+    labels: Vec<Label>,
 }
 
 impl Automaton {
@@ -40,18 +40,37 @@ impl Automaton {
             .map(|v| Channel::from_json(v, &curves))
             .collect::<Vec<_>>();
 
+        let labels = json
+            .get("labels")
+            .and_then(Value::as_object)
+            .into_iter()
+            .flatten()
+            .filter_map(|(name, value)| {
+                value
+                    .as_f64()
+                    .map(|time| Label::new(name.clone(), time as _))
+            })
+            .collect();
+
         Self {
             time: 0.0,
             resolution,
             curves,
             channels,
+            labels,
         }
     }
 }
 
 pub struct Label {
-    name: String,
-    time: f32,
+    pub name: String,
+    pub time: f32,
+}
+
+impl Label {
+    pub fn new(name: String, time: f32) -> Self {
+        Self { name, time }
+    }
 }
 
 #[cfg(test)]

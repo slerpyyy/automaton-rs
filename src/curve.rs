@@ -111,27 +111,23 @@ impl Curve {
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
 
-        self.values.clear();
-        let total = (self.length() * resolution as f32).floor() as usize;
-        self.values.reserve(total);
+        let length = self.length();
+        let total = (length * resolution as f32).floor() as usize;
+        self.values = (0..total)
+            .map(|index| {
+                let time = length * (index as f32 - 1.0) / (total as f32 - 1.0);
+                let index = self
+                    .nodes
+                    .iter()
+                    .skip(1)
+                    .position(|node| node.time > time)
+                    .unwrap_or(self.nodes.len() - 2);
 
-        let mut node_iter = self.nodes.iter();
-        let mut last = node_iter.next().unwrap();
-
-        for curr in node_iter {
-            let steps = ((curr.time - last.time) * resolution as f32).floor() as usize;
-
-            for _ in 0..steps {
-                let time = self.values.len() as f32 / resolution as f32;
-                let value = bezier_easing(last, curr, time);
-                self.values.push(value);
-            }
-
-            last = curr;
-        }
-
-        self.values
-            .extend(std::iter::repeat(last.value).take(total.saturating_sub(self.values.len())));
+                let n0 = &self.nodes[index];
+                let n1 = &self.nodes[index + 1];
+                bezier_easing(n0, n1, time)
+            })
+            .collect();
     }
 
     fn apply_fxs(&mut self, _resolution: usize) {

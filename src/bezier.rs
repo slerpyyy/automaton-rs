@@ -115,7 +115,7 @@ pub fn bezier_easing(node0: &Node, node1: &Node, time: f32) -> f32 {
         let sample = cache
             .iter()
             .skip(1)
-            .position(|&c| time < c)
+            .position(|&c| c > time)
             .unwrap_or(TABLE_SIZE - 2);
 
         let dist = (time - cache[sample]) / (cache[sample + 1] - cache[sample]);
