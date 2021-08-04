@@ -111,23 +111,31 @@ impl Curve {
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
 
-        let length = self.length();
-        let total = (length * resolution as f32).floor() as usize;
-        self.values = (0..total)
-            .map(|index| {
-                let time = length * (index as f32) / (total as f32 - 1.0);
-                let index = self
-                    .nodes
-                    .iter()
-                    .skip(1)
-                    .position(|node| node.time > time)
-                    .unwrap_or(self.nodes.len() - 2);
+        let values_length = (resolution as f32 * self.length()).ceil() as usize + 1;
+        self.values = Vec::with_capacity(values_length);
+        unsafe { self.values.set_len(values_length) };
 
-                let n0 = &self.nodes[index];
-                let n1 = &self.nodes[index + 1];
-                bezier_easing(n0, n1, time)
-            })
-            .collect();
+        let mut node_tail = self.nodes.first().unwrap();
+        let mut i_tail = 0;
+        for i_node in 0..(self.nodes.len() - 1) {
+            let node0 = node_tail;
+            node_tail = &self.nodes[i_node + 1];
+
+            let i0 = i_tail;
+            i_tail = (node_tail.time * resolution as f32).floor() as _;
+
+            self.values[i0] = node0.value;
+
+            for i in (i0 + 1)..=i_tail {
+                let time = i as f32 / resolution as f32;
+                let value = bezier_easing(node0, node_tail, time);
+                self.values[i] = value;
+            }
+        }
+
+        for i in (i_tail + 1)..self.values.len() {
+            self.values[i] = node_tail.value;
+        }
     }
 
     fn apply_fxs(&mut self, _resolution: usize) {
@@ -135,7 +143,7 @@ impl Curve {
     }
 
     pub fn get_value(&self, time: f32) -> f32 {
-        if time <= 0.0 {
+        if time < 0.0 {
             return *self.values.first().unwrap();
         }
 
@@ -149,9 +157,9 @@ impl Curve {
         let index_i = index.floor() as usize;
         let index_f = index.fract();
 
-        let low = self.values[index_i];
-        let high = self.values[index_i + 1];
-        low + (high - low) * index_f
+        let v0 = self.values[index_i];
+        let v1 = self.values[index_i + 1];
+        v0 + (v1 - v0) * index_f
     }
 
     pub fn length(&self) -> f32 {

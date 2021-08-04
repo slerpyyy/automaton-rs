@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use crate::{curve::Curve, item::Item};
 
+#[derive(Debug)]
 pub struct Channel {
     items: Vec<Item>,
     value: f32,

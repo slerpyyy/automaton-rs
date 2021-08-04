@@ -1,89 +1,60 @@
+#![deny(missing_debug_implementations)]
+#![deny(unsafe_op_in_unsafe_fn)]
+
 mod bezier;
 
 pub mod channel;
+pub mod connection;
 pub mod curve;
+pub mod fx;
 pub mod item;
+pub mod state;
 
-use channel::Channel;
-use curve::Curve;
-use serde_json::Value;
-use std::sync::Arc;
+use connection::Connection;
+use fx::FxFn;
+use state::SaveState;
+use std::{collections::HashMap, fmt::Debug, io::Read, sync::Arc};
 
+#[derive(Default)]
 pub struct Automaton {
     time: f32,
-    resolution: usize,
-    curves: Vec<Arc<Curve>>,
-    channels: Vec<Channel>,
-    labels: Vec<Label>,
+    state: Option<Arc<SaveState>>,
+    connection: Option<Connection>,
+    fxs: HashMap<String, Box<dyn FxFn>>,
 }
 
-impl Automaton {
-    pub fn from_json(json: Value) -> Self {
-        let resolution = json
-            .get("resolution")
-            .and_then(Value::as_u64)
-            .unwrap_or(100) as _;
-
-        let curves = json
-            .get("curves")
-            .and_then(Value::as_array)
-            .into_iter()
-            .flatten()
-            .map(|v| Arc::new(Curve::from_json(v, resolution)))
-            .collect::<Vec<_>>();
-
-        let channels = json
-            .get("channels")
-            .and_then(Value::as_array)
-            .into_iter()
-            .flatten()
-            .map(|v| Channel::from_json(v, &curves))
-            .collect::<Vec<_>>();
-
-        let labels = json
-            .get("labels")
-            .and_then(Value::as_object)
-            .into_iter()
-            .flatten()
-            .filter_map(|(name, value)| {
-                value
-                    .as_f64()
-                    .map(|time| Label::new(name.clone(), time as _))
-            })
-            .collect();
-
-        Self {
-            time: 0.0,
-            resolution,
-            curves,
-            channels,
-            labels,
-        }
+impl Debug for Automaton {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Automaton")
+            .field("time", &self.time)
+            .field("state", &self.state)
+            .field("connection", &self.connection)
+            .finish_non_exhaustive()
     }
 }
 
-pub struct Label {
-    pub name: String,
-    pub time: f32,
-}
+impl Automaton {
+    pub fn new() -> Self {
+        Self {
+            time: 0.0,
+            state: None,
+            connection: None,
+            fxs: HashMap::new(),
+        }
+    }
 
-impl Label {
-    pub fn new(name: String, time: f32) -> Self {
-        Self { name, time }
+    pub fn load<R: Read>(&mut self, data: R) {
+        let json = serde_json::from_reader(data).unwrap();
+        let state = SaveState::from_json(json);
+        self.state = Some(Arc::new(state));
+    }
+
+    pub fn add_fx_definition(&mut self, name: String, fx: impl FxFn) {
+        self.fxs.insert(name, Box::new(fx));
     }
 }
 
 #[cfg(test)]
 mod tests {
-
-    #[cfg(disabled)]
-    #[test]
-    fn websocket_test() {
-        let (mut ws, _) = tungstenite::connect("ws://localhost:12250/").unwrap();
-
-        loop {
-            let msg = ws.read_message().unwrap();
-            println!("{}", msg);
-        }
-    }
+    // TODO
 }
