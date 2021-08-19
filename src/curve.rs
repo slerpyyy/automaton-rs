@@ -1,6 +1,8 @@
+use std::collections::HashMap;
+
 use serde_json::Value;
 
-use crate::bezier::bezier_easing;
+use crate::{bezier::bezier_easing, fx::{FxContext, FxFnBoxFn, FxSection}};
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Node {
@@ -62,6 +64,7 @@ impl Node {
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Curve {
     pub nodes: Vec<Node>,
+    pub fxs: Vec<FxSection>,
     values: Vec<f32>,
 }
 
@@ -75,14 +78,14 @@ impl Curve {
             .map(Node::from_json)
             .collect::<Vec<_>>();
 
-        Self::with_resolution(&nodes, resolution)
+        Self::with_params(&nodes, resolution, &HashMap::new())
     }
 
     pub fn new(nodes: &[Node]) -> Self {
-        Self::with_resolution(nodes, 100)
+        Self::with_params(nodes, 100, &HashMap::new())
     }
 
-    pub fn with_resolution(nodes: &[Node], resolution: usize) -> Self {
+    pub fn with_params(nodes: &[Node], resolution: usize, fxs: &HashMap<String, FxFnBoxFn>) -> Self {
         if nodes.len() < 2 {
             panic!(
                 "A curve must consist of at least 2 nodes, got {}",
@@ -93,15 +96,16 @@ impl Curve {
         let mut this = Self {
             nodes: nodes.to_vec(),
             values: Vec::new(),
+            fxs: Vec::new(),
         };
 
-        this.precalc(resolution);
+        this.precalc(resolution, fxs);
         this
     }
 
-    fn precalc(&mut self, resolution: usize) {
+    fn precalc(&mut self, resolution: usize, fxs: &HashMap<String, FxFnBoxFn>) {
         self.generate_curve(resolution);
-        self.apply_fxs(resolution);
+        self.apply_fxs(resolution, fxs);
     }
 
     fn generate_curve(&mut self, resolution: usize) {
@@ -138,8 +142,61 @@ impl Curve {
         }
     }
 
-    fn apply_fxs(&mut self, _resolution: usize) {
-        // TODO: figure out what the hell this is
+    fn apply_fxs(&mut self, resolution: usize, fxs: &HashMap<String, FxFnBoxFn>) {
+        for fx in &self.fxs {
+            let fx_def = fxs.get(&fx.def);
+            let mut fx_fn = match fx_def {
+                Some(fx_def) => fx_def(),
+                _ => {
+                    eprintln!("No such fx definition: {}", fx.def);
+                    continue;
+                }
+            };
+
+            let available_end = f32::min(self.length(), fx.time + fx.length);
+            let i0 = f32::ceil(resolution as f32 * fx.time) as usize;
+            let i1 = f32::floor(resolution as f32 * available_end) as usize;
+            if i1 <= i0 {
+                eprintln!("Length of the fx section is being negative");
+                continue;
+            }
+
+            let temp_length = i1 - i0 + 1;
+            for i in 0..temp_length {
+                let index = i + i0;
+                let time = index as f32 / resolution as f32;
+                let elapsed = time - fx.time;
+                let progress = elapsed / fx.length;
+
+                let context = FxContext {
+                    index,
+                    i0,
+                    i1,
+                    time,
+                    t0: fx.time,
+                    t1: fx.time + fx.length,
+                    delta_time: 1.0 / resolution as f32,
+                    value: self.values[i + i0],
+                    progress,
+                    elapsed,
+                    resolution,
+                    length: fx.length,
+                    //params: fx.params,
+                    array: &self.values,
+                    //shouldNotInterpolate: this.__shouldNotInterpolate[ i0 ] === 1,
+                    //setShouldNotInterpolate: ( shouldNotInterpolate: boolean ) => {
+                    //  this.__shouldNotInterpolate[ context.index ] = shouldNotInterpolate ? 1 : 0;
+                    //},
+                    get_value: &|t: f32| self.get_value(t),
+                    init: i == 0,
+                    //state: FxParams::new(),
+                };
+
+                //context.shouldNotInterpolate = this.__shouldNotInterpolate[ i + i0 ] == 1;
+
+                self.values[i] = fx_fn(context);
+            }
+        }
     }
 
     pub fn get_value(&self, time: f32) -> f32 {
