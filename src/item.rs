@@ -33,6 +33,10 @@ impl Item {
         }
     }
 
+    pub fn end(&self) -> f32 {
+        self.time + self.length
+    }
+
     pub fn get_value(&self, time: f32) -> f32 {
         if self.reset && self.length <= time {
             return 0.0;

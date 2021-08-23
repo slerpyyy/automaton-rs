@@ -28,11 +28,11 @@ impl Channel {
         }
     }
 
-    pub fn get_current_value(&self) -> f32 {
+    pub fn current_value(&self) -> f32 {
         self.value
     }
 
-    pub fn get_current_time(&self) -> f32 {
+    pub fn current_time(&self) -> f32 {
         self.time
     }
 

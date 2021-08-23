@@ -11,7 +11,7 @@ pub mod item;
 pub mod state;
 
 use connection::Connection;
-use fx::FxFn;
+use fx::FxFnBoxFn;
 use state::SaveState;
 use std::{collections::HashMap, fmt::Debug, io::Read, sync::Arc};
 
@@ -20,7 +20,7 @@ pub struct Automaton {
     time: f32,
     state: Option<Arc<SaveState>>,
     connection: Option<Connection>,
-    fxs: HashMap<String, Box<dyn FxFn>>,
+    fxs: HashMap<String, FxFnBoxFn>,
 }
 
 impl Debug for Automaton {
@@ -43,14 +43,14 @@ impl Automaton {
         }
     }
 
-    pub fn load<R: Read>(&mut self, data: R) {
+    pub fn load(&mut self, data: impl Read) {
         let json = serde_json::from_reader(data).unwrap();
-        let state = SaveState::from_json(json);
+        let state = SaveState::from_json(json, &self.fxs);
         self.state = Some(Arc::new(state));
     }
 
-    pub fn add_fx_definition(&mut self, name: String, fx: impl FxFn) {
-        self.fxs.insert(name, Box::new(fx));
+    pub fn add_fx_definition(&mut self, name: String, fx: FxFnBoxFn) {
+        self.fxs.insert(name, fx);
     }
 }
 

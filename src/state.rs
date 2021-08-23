@@ -1,6 +1,8 @@
 use crate::channel::Channel;
 use crate::curve::Curve;
+use crate::fx::FxFnBoxFn;
 use serde_json::Value;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 #[derive(Debug)]
@@ -13,7 +15,7 @@ pub struct SaveState {
 }
 
 impl SaveState {
-    pub fn from_json(json: Value) -> Self {
+    pub fn from_json(json: Value, fxs: &HashMap<String, FxFnBoxFn>) -> Self {
         let resolution = json
             .get("resolution")
             .and_then(Value::as_u64)
@@ -24,7 +26,7 @@ impl SaveState {
             .and_then(Value::as_array)
             .into_iter()
             .flatten()
-            .map(|v| Arc::new(Curve::from_json(v, resolution)))
+            .map(|v| Arc::new(Curve::from_json(v, resolution, fxs)))
             .collect::<Vec<_>>();
 
         let channels = json

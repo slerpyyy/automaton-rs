@@ -69,7 +69,7 @@ pub struct Curve {
 }
 
 impl Curve {
-    pub(crate) fn from_json(json: &Value, resolution: usize) -> Self {
+    pub(crate) fn from_json(json: &Value, resolution: usize, fxs: &HashMap<String, FxFnBoxFn>) -> Self {
         let nodes = json
             .get("nodes")
             .and_then(Value::as_array)
@@ -78,14 +78,15 @@ impl Curve {
             .map(Node::from_json)
             .collect::<Vec<_>>();
 
-        Self::with_params(&nodes, resolution, &HashMap::new())
+        Self::with_params(&nodes, resolution, fxs)
     }
 
-    pub fn new(nodes: &[Node]) -> Self {
+    #[cfg(test)]
+    pub(crate) fn new(nodes: &[Node]) -> Self {
         Self::with_params(nodes, 100, &HashMap::new())
     }
 
-    pub fn with_params(nodes: &[Node], resolution: usize, fxs: &HashMap<String, FxFnBoxFn>) -> Self {
+    pub(crate) fn with_params(nodes: &[Node], resolution: usize, fxs: &HashMap<String, FxFnBoxFn>) -> Self {
         if nodes.len() < 2 {
             panic!(
                 "A curve must consist of at least 2 nodes, got {}",
@@ -267,7 +268,7 @@ mod tests {
         }"#;
 
         let value = serde_json::from_str(json).unwrap();
-        let curve = Curve::from_json(&value, 100);
+        let curve = Curve::from_json(&value, 100, &HashMap::new());
 
         assert_eq!(curve.nodes[0].time, 0.0);
         assert_eq!(curve.nodes[0].value, 1.0);

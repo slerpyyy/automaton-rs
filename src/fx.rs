@@ -6,9 +6,6 @@ pub trait FxFn: FnMut(FxContext) -> f32 + 'static {}
 
 pub type FxFnBoxFn = fn() -> Box<dyn FxFn>;
 
-// Rust Type of the Day:
-// FxFnBoxFn = fn() -> Box<dyn FnMut(FxContext) -> f32 + 'static>
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct FxSection {
     /// Beginning time of the section.
